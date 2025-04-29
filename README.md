@@ -105,7 +105,7 @@ def create_character():
         return Paladin(name)
 ```
 
-I've included some validation to allow the user 3 chances to select a valid character class, otherwise defaulting to the Warrior class. I used the [time.sleep()] to make the process more immersive.
+I've included some validation to allow the user 3 chances to select a valid character class, otherwise defaulting to the Warrior class. I used the [time.sleep()](#timesleep) to make the process more immersive.
 
 ### Battle System
 
