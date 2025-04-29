@@ -13,6 +13,10 @@
 
 1. [UI](#1-ui)
 
+    - [Character Creation](#character-creation)
+    - [Battle System](#battle-system)
+    - [Immersion](#immersion)
+
 2. [Character](#2-character)
 
 3. [Warrior](#3-warrior)
@@ -20,6 +24,14 @@
 4. [Mage](#4-mage)
 
 5. [Archer](#5-archer)
+
+6. [Paladin](#6-paladin)
+
+7. [Evil Wizard](#7-evil-wizard)
+
+8. [Gilgamesh](#8-gilgamesh)
+
+9. [Ultimate](#9-ultimate)
 
 ---
 ---
@@ -163,7 +175,181 @@ def battle(player, wizard):
         print(f"\n🎉 {player.name} has defeated the Dark Wizard!")
 ```
 
-The player enters into the battle arena with the Evil Wizard. Here the options for battle are displayed along with the [health bar] for the player and the wizard. The turn-based system stays active as long as the health of the player and wizard are above 0. I've included [Random events] and a secret character [Gilagamesh] who appears randomly. The options available for the player during battle are [Attack](#attack), [Special Ability], [Heal] and [View Stats] which are defined in the [Character](#2-character) base class and the [Warrior], [Mage], [Archer] and [Paladin] classes.
+The player enters into the battle arena with the Evil Wizard. Here the options for battle are displayed along with the [health bar](#health-bar) for the player and the wizard. The turn-based system stays active as long as the health of the player and wizard are above 0. I've included [Random events](#random-events) and a secret character [Gilagamesh](#8-gilgamesh) who appears randomly. The options available for the player during battle are [Attack](#attack), [Special Ability](#special-ability), [Heal](#heal) and [View Stats](#display_stats) which are defined in the [Character](#2-character) base class and the [Warrior](#3-warrior), [Mage](#4-mage), [Archer](#5-archer) and [Paladin](#6-paladin) classes.
+
+#### Random Events
+
+To keep things interesting, I've included a `random_event()` generator that has a 20% chance of generating an event every turn. The logic is as follows:
+
+```py
+def random_event(player, wizard):
+    events = [
+        "rain",         
+        "quake",         
+        "blessing",      
+        "curse",        
+        "mana surge",    
+        "meteor shower", 
+    ]
+    weights = [2, 2, 1, 1, 1, 2] 
+
+    event = random.choices(events, weights=weights, k=1)[0] 
+
+    time.sleep(1)
+    print("\n" + "=" * 40)
+    typewrite(f"🌟 Something is happening: {event.upper()}! 🌟")
+    print("=" * 40 + "\n")
+    time.sleep(1)
+
+    if event == "rain":
+        player.attack_power = max(1, int(player.attack_power * 0.8))
+        wizard.attack_power = max(1, int(wizard.attack_power * 0.8))
+        print("🌧️  The rain dampens everyone's weapons, reducing attack power by 20%!")
+    elif event == "quake":
+        print(f"🌍  A quake shakes the battlefield!")
+        damage = random.randint(10, 30)
+        if player.state['immune'][0]:
+            print(f"{player.name} is immune and receives no damage!")
+        elif player.state['armored'][0]:
+            player.health = max(1, player.health - int(damage * 0.5))
+            print(f"{player.name} is armored and receives {int(damage * 0.5)} damage!")
+        else:
+            player.health = max(1, player.health - damage)
+            print(f"{player.name} takes {damage} damage!")
+            
+        if wizard.state['immune'][0]:
+            print(f"{wizard.name} is immune and receives no damage!")
+        elif wizard.state['armored'][0]:
+            wizard.health = max(1, wizard.health - int(damage * 0.5))
+            print(f"{wizard.name} is armored and receives {int(damage * 0.5)} damage!")
+        else:
+            wizard.health = max(1, wizard.health - damage)
+            print(f"{wizard.name} takes {damage} damage!")
+        
+    elif event == "blessing":
+        heal = random.randint(20, 60)
+        player.health = min(player.max_health, player.health + heal)
+        print(f"✨  A divine blessing heals the player for {heal} health!")
+    elif event == "curse":
+        player.state["poisoned"] = [True, 2]
+        print("💀  A dark curse poisons the player for 2 turns!")
+    elif event == "mana surge":
+        wizard.attack_power = int(wizard.attack_power * 1.5)
+        print("🔮  The wizard absorbs a mana surge, boosting attack power by 50%!")
+    elif event == "meteor shower":
+        print(f"☄️  Meteors rain down!")
+        time.sleep(0.5)
+        player_damage = random.randint(10, 50)
+        wizard_damage = random.randint(10, 50)
+        
+        if player.state['immune'][0]:
+            print(f"{player.name} is immune and receives no damage!")
+        elif player.state['armored'][0]:
+            player.health = max(1, player.health - int(player_damage * 0.5))
+            print(f"{player.name} is armored and receives {int(player_damage * 0.5)} damage!")
+        else:
+            player.health = max(1, player.health - player_damage)
+            print(f"{player.name} takes {player_damage} damage!")
+            
+        if wizard.state['immune'][0]:
+            print(f"{wizard.name} is immune and receives no damage!")
+        elif wizard.state['armored'][0]:
+            wizard.health = max(1, wizard.health - int(wizard_damage * 0.5))
+            print(f"{wizard.name} is armored and receives {int(wizard_damage * 0.5)} damage!")
+        else:
+            wizard.health = max(1, wizard.health - wizard_damage)
+            print(f"{wizard.name} takes {wizard_damage} damage!")
+
+    time.sleep(1)
+```
+
+The events `rain`, `quake`, `blessing`, `curse`, `mana surge` and `meteor shower` are stored in a list. I use the `random.choices()` method to randomly select an event (with given weights) and apply it to the battle field when it successfully activates
+
+#### Health Bar
+
+Both the player and the wizard have a health/status bar. That logic is handled in the `display_health_bar()` function:
+
+```py
+def display_health_bar(name, health, max_health, state):
+    bar_length = 20
+    filled_length = int(bar_length * health / max_health)
+    bar = f"{Fore.GREEN}{'█' * filled_length}{Fore.RED}{'█' * (bar_length - filled_length)}{Style.RESET_ALL}"
+    if health <= max_health * 0.2:
+        print(f"\n{Fore.YELLOW}{name}:\n{bar} {health}/{max_health}{Style.RESET_ALL}")
+    else:
+        print(f"\n{name}:\n{bar} {health}/{max_health}")
+    active_states = [state_name for state_name, (active, _) in state.items() if active]
+    if active_states:
+        print(f"{Fore.BLUE}Status: {', '.join(active_states)}{Style.RESET_ALL}\n")
+```
+
+Here there is a visual representation of the health vs max health using red and green "bar" characters. There is also a Status section right below that displays any active states.
+
+#### Special Ability
+
+This sub-menu is accessed when the player selects the `2. Use Special Ability` option. This gives them 3 options to choose from and the ability availability changes throughout the game under different circumstances.
+
+### Immersion
+
+I wanted to have a more immersive experience for the player so I implemented some mechanics to achieve that
+
+#### Text Color
+
+I used this import to change the color of specific text:
+
+```py
+from colorama import Fore, Style
+```
+
+An example of this being implemented:
+
+```py
+ print(
+        f"""{Fore.RED}\n\n{self.name} has cursed {opponent.name}!
+        \n{opponent.name} is now confused and poisoned for {opponent.state['confused'][1]} turns!{Style.RESET_ALL}"""
+            )
+```
+
+#### time.sleep()
+
+This is probably the most impactful mechanic in the game. By importing:
+
+```py
+import time
+```
+
+I'm able to call the `time.sleep()` to insert delays between print() calls to "slow" the action of the game to something that feels more real-time. An example of the implementation:
+
+```py
+time.sleep(1)
+typewrite(f"{Fore.GREEN}\n\n*** I AM GILGAMESH ***{Style.RESET_ALL}")
+time.sleep(1)
+```
+
+This puts a 1 second delay before and after the output
+
+#### typewrite()
+
+By importing
+
+```py
+import sys
+```
+
+I was able to create a function that "types" out the characters rather than printing out the text all at once:
+
+```py
+def typewrite(text, delay=0.02):
+    for char in text:
+        sys.stdout.write(char)
+        sys.stdout.flush()
+        time.sleep(delay)
+    print()
+```
+
+This makes certain quotes and menu headers more dramatic and interesting for the player.
+
+I've also added many different unicode symbols throughout to make the UI more visually appealing! These are just a few: 🌟💀✨
 
 ---
 ---
@@ -195,27 +381,27 @@ The Character class has 5 properties: `name`, `health`, `attack_power` and `stat
 
 ### States
 
-#### - Zealous
+#### Zealous
 
 - character is given a boost of strength
 
-#### - Armored
+#### Armored
 
 - character receives 50% less damage
 
-#### - Immune
+#### Immune
 
 - character is immune to physical damage
 
-#### - Petrified
+#### Petrified
 
 - character is unable to perform any action other then [View stats]
 
-#### - Confused
+#### Confused
 
 - character will inflict damage on themselves if using [Attack](#attack)
 
-#### - Poisoned
+#### Poisoned
 
 - character receives 10 damage after every action
 
@@ -255,7 +441,7 @@ def attack(self, opponent):
                 print(f"\n{self.name} attacks {opponent.name} for {curr_power} damage!")
 ```
 
-When called, first checks if character is [petrified](#--petrified) with [handle_petrify()](#handle_petrify). It then proceeds to see if the opponent is [immune](#--immune) to physical attacks. Next the damage for the attack is calculated based on the character's `attack_power` and whether they are [zealous](#--zealous) or not. The final output is a random number generated from the range of +-5 that damage. The method then checks if the opponent is [armored](#--armored) and if the the player is [confused](#--confused) before finally applying the final result of the attack.
+When called, first checks if character is [petrified](#petrified) with [handle_petrify()](#handle_petrify). It then proceeds to see if the opponent is [immune](#immune) to physical attacks. Next the damage for the attack is calculated based on the character's `attack_power` and whether they are [zealous](#zealous) or not. The final output is a random number generated from the range of +-5 that damage. The method then checks if the opponent is [armored](#armored) and if the the player is [confused](#confused) before finally applying the final result of the attack.
 
 ### heal()
 
@@ -275,7 +461,7 @@ def heal(self):
             )
 ```
 
-It checks if the player is [petrified](#--petrified) before applying a healing amount of 20 health (which is re-calculated if the health is within 20 of the max health)
+It checks if the player is [petrified](#petrified) before applying a healing amount of 20 health (which is re-calculated if the health is within 20 of the max health)
 
 ### display_stats()
 
@@ -319,7 +505,7 @@ Iterates through [state](#states) dictionary of each character and decrements th
 
 ### handle_poison()
 
-Checks if the character is [poisoned](#--poisoned):
+Checks if the character is [poisoned](#poisoned):
 
 ```py
 def handle_poison(self):
@@ -332,7 +518,7 @@ This is called after every action. If the character is indeed in a poisoned stat
 
 ### handle_petrify()
 
-Checks if a character is [petrified](#--petrified):
+Checks if a character is [petrified](#petrified):
 
 ```py
 def handle_petrify(self):
@@ -451,25 +637,25 @@ class Warrior(Character):
 
 ### Warrior special()
 
-The warrior class has 3 special abilities, including an [ULTIMATE] ability:
+The warrior class has 3 special abilities, including an [ULTIMATE](#9-ultimate) ability:
 
 #### - Battle Cry
 
-- Warrior becomes [Zealous](#--zealous) for 3 turns
-- Opponent becomes [Petrified](#--petrified) for 3 turns
+- Warrior becomes [Zealous](#zealous) for 3 turns
+- Opponent becomes [Petrified](#petrified) for 3 turns
 - 6 turn cool down
 
 #### - Shield Slam
 
 - Warrior deals 1 - 35 damage to opponent
-- Opponent is [Petrified](#--petrified) for 2 turns
+- Opponent is [Petrified](#petrified) for 2 turns
 - 4 turn cool down
 
 #### - ULTIMATE: Armageddon
 
 - Warrior launches opponent in the air and causes damage equal to 30% - 90% of opponent's health
 - Opponent crashes into the ground, receiving damage equal to 40% - 80% of remaining health
-- Opponent loses any [Immune](#--immune) and [Armored](#--armored) state and also becomes [Petrified](#--petrified) for one turn
+- Opponent loses any [Immune](#immune) and [Armored](#armored) state and also becomes [Petrified](#petrified) for one turn
 
 ---
 ---
@@ -568,7 +754,7 @@ class Mage(Character):
 
 ### Mage special()
 
-The mage class has 3 special abilities, including an [ULTIMATE] ability:
+The mage class has 3 special abilities, including an [ULTIMATE](#9-ultimate) ability:
 
 #### - Fireball
 
@@ -577,7 +763,7 @@ The mage class has 3 special abilities, including an [ULTIMATE] ability:
 
 #### - Arcane Shield
 
-- Mage is [Armored](#--armored) for 2 turns
+- Mage is [Armored](#armored) for 2 turns
 - 4 turn cool down
 
 #### - ULTIMATE: Apocalypse
@@ -692,7 +878,7 @@ class Archer(Character):
 
 ### Archer special()
 
-The archer class has 3 special abilities, including an [ULTIMATE] ability:
+The archer class has 3 special abilities, including an [ULTIMATE](#9-ultimate) ability:
 
 #### - Piercing Arrow
 
@@ -804,23 +990,162 @@ class Paladin(Character):
 
 ### Paladin special()
 
-The archer class has 3 special abilities, including an [ULTIMATE] ability:
+The archer class has 3 special abilities, including an [ULTIMATE](#9-ultimate) ability:
 
 #### - Holy Strike
 
 - Paladin deals 10 - 50 damage to opponent
-- Opponent is [Petrified](#--petrified) for 1 turn
+- Opponent is [Petrified](#petrified) for 1 turn
 - 4 turn cool down
 
 #### - Divine Shield
 
-- Paladin is [Immune](#--immune) for 2 turns
+- Paladin is [Immune](#immune) for 2 turns
 - 4 turn cool down
 
 #### - ULTIMATE: Archangel
 
 - Archangel is summoned and deals damage equal to 80% of opponent's health
-- Opponent is no longer [Immune](#--immune) or [Armored](#--armored)
+- Opponent is no longer [Immune](#immune) or [Armored](#armored)
 
+## 7. Evil Wizard
 
-[back to top](#e-commerce-product-listing-app)
+The Evil Wizard class:
+
+```py
+class EvilWizard(Character):
+    def __init__(self, name):
+        super().__init__(name, health=150, attack_power=20)
+        self.ultimate_available = True
+
+    def regenerate(self):
+        self.health += 5
+        time.sleep(0.5)
+        print(f"{self.name} regenerates 5 health! Current health: {self.health}")
+
+    def barrier(self):
+        if self.health <= self.max_health * 0.8:
+            trigger = random.randint(1, 4)
+            if trigger == 3 and not self.state["petrified"][0]:
+                self.state["armored"] = [True, 3]
+                self.state["immune"] = [True, 2]
+                self.health += 40
+                time.sleep(1)
+                print(
+                    f"""{Fore.LIGHTMAGENTA_EX}\n\n{self.name} activated Barrier!
+                    \n{self.name} has 50% increase in defense for {self.state['armored'][1]} turns!
+                    \n{self.name} is immune to physical damage for {self.state['immune'][1] - 1} turn!
+                    \n{self.name} received 40 health! Current health: {self.health}{Style.RESET_ALL}"""
+                )
+                return True
+            else:
+                return False
+
+    def curse(self, opponent):
+        trigger = random.randint(1, 5)
+        if trigger == 3 and not self.state["petrified"][0]:
+            opponent.state["confused"] = [True, 2]
+            opponent.state["poisoned"] = [True, 2]
+            time.sleep(1)
+            print(
+                f"""{Fore.RED}\n\n{self.name} has cursed {opponent.name}!
+                \n{opponent.name} is now confused and poisoned for {opponent.state['confused'][1]} turns!{Style.RESET_ALL}"""
+            )
+            return True
+        else:
+            return False
+        
+    def antimatter(self, opponent):
+        if self.health <= self.max_health * 0.2 and self.ultimate_available:
+           trigger = random.randint(1, 2)
+           if trigger == 2:
+               time.sleep(1.5)
+               typewrite(f"{Fore.MAGENTA}\n...so...you think you're winning?...{Style.RESET_ALL}")
+               time.sleep(1)
+               typewrite(f"{Fore.MAGENTA}\n...I call upon...ANTIMATTER!\n{Style.RESET_ALL}")
+               time.sleep(0.5)
+               opponent.state['poisoned'] = [True, 3]
+               opponent.state['confused'] = [True, 3]
+               opponent.state['petrified'] = [True, 2]
+               opponent.health = max(1, int(opponent.health * 0.5))
+               print(f"{Fore.MAGENTA}\n{self.name} slashed {opponent.name}'s health in half!!{Style.RESET_ALL}")
+               self.ultimate_available = False
+```
+
+### regenerate()
+
+During every turn, the evil wizard regenerates 5 health with no cap. This ability is unaffected by the wizard's state
+
+### barrier()
+
+During every turn, if the wizard's health is less than or equal to 80% of his max health and he is not [Petrified](#petrified), there is a 25% chance the wizard will heal himself for 40, become [Armored](#armored) for 3 turns and become [Immune](#immune) for 2 turns.
+
+### curse()
+
+During every turn, if the wizard is not [Petrified](#petrified), there is a 20% chance he will cause the player to be [Confused](#confused) and [Poisoned](#poisoned) for 2 turns
+
+### antimatter()
+
+This is the Evil Wizard's [ULTIMATE](#9-ultimate) ability. He will inflict damage equal to 50% of the player's health and cause the player to be [Poisoned](#poisoned) and [Confused](#confused) for 3 turns and [Petrified](#petrified) for 2 turns
+
+## 8. Gilgamesh
+
+The secret Gilgamesh class:
+
+```py
+class Gilgamesh(Character):
+    def __init__(self, name):
+        super().__init__(name, health=9999, attack_power=9999)
+
+    @staticmethod
+    def swords(opponent, player):
+        if opponent.health > 0 and player.health <= player.max_health * 0.6:
+            trigger = random.randint(1, 15)
+            if trigger == 7:
+                sword = random.randint(1, 3)
+                print("\n" + "=" * 40)
+                time.sleep(1)
+                typewrite(f"{Fore.GREEN}\n\n*** I AM GILGAMESH ***{Style.RESET_ALL}")
+                time.sleep(1)
+                print("\n" + "=" * 40)
+                time.sleep(0.5)
+                typewrite(f"{Fore.GREEN}\n I will attack with...{Style.RESET_ALL}")
+                time.sleep(1.5)
+                if sword == 1:
+                    typewrite(f"{Fore.GREEN}\n...the first one!{Style.RESET_ALL}")
+                    time.sleep(1)
+                    damage = random.randint(50, 201)
+                    opponent.health -= damage
+                    print(f"\nGilgamesh dealt {damage} damage to {opponent.name}!\n")
+                elif sword == 2:
+                    typewrite(f"{Fore.GREEN}\n...the second one!{Style.RESET_ALL}")
+                    time.sleep(1)
+                    damage = random.randint(5, 40)
+                    opponent.health -= damage
+                    print(f"\nGilgamesh dealt {damage} damage to {opponent.name}!\n")
+                elif sword == 3:
+                    typewrite(f"{Fore.GREEN}\n...the third one!{Style.RESET_ALL}")
+                    time.sleep(1)
+                    opponent.health -= 1
+                    print(f"\nGilgamesh dealt 1 damage to {opponent.name}!\n")
+```
+
+I created Gilgamesh to operate as a random summon character that aids the player. Gilgamesh has one method called `swords()` which I made a static method to call on it's own. This is called every turn and becomes activated randomly under the condition that the player's health is at 60% or less. Gilgamesh then has a 6.67% chance to show up during battle and use 1 of 3 swords in his arsenal:
+
+### ...the first one
+
+This is like a pseudo-[ULTIMATE](#9-ultimate) ability that deals 50 - 200 damage to the wizard
+
+### ...the second one
+
+This is the normal attack of Gilgamesh, dealing 5 - 40 damage to the wizard
+
+### ...the third one
+
+This is a VERY unlucky attack dealing just 1 damage to the wizard
+
+## 9. Ultimate
+
+Every character class has an Ultimate ability that becomes active when their health drops to 20% or less than their max health. For the player, this will activate the Ultimate ability option in the [Special Ability](#special-ability) menu. For the Evil Wizard, this will have a 50% chance to activate automatically. The Ultimate is designed to potentially change the tide of the battle!
+
+[back to top](#defeat-the-evil-wizard)
