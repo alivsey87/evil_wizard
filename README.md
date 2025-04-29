@@ -1,10 +1,10 @@
 
-# E-Commerce Product Listing App
+# Defeat The Evil Wizard
 
 ---
 ---
 
-## For this project, I created a site/app called "Comp-Pheral" (computer + peripheral...I tried lol) that displays a list of peripherals offered
+### Welcome to my Defeat The Evil Wizard game!!
 
 ---
 ---

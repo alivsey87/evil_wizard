@@ -4,7 +4,7 @@ import sys
 from colorama import Fore, Style
 
 
-def typewrite(text, delay=0.03):
+def typewrite(text, delay=0.02):
     for char in text:
         sys.stdout.write(char)
         sys.stdout.flush()
@@ -24,6 +24,52 @@ def display_health_bar(name, health, max_health, state):
     if active_states:
         print(f"{Fore.BLUE}Status: {', '.join(active_states)}{Style.RESET_ALL}\n")
 
+def random_event(player, wizard):
+    events = [
+        "rain",         
+        "quake",         
+        "blessing",      
+        "curse",        
+        "mana surge",    
+        "meteor shower", 
+    ]
+    weights = [2, 2, 1, 1, 1, 2] 
+
+    event = random.choices(events, weights=weights, k=1)[0] 
+
+    time.sleep(1)
+    print("\n" + "=" * 40)
+    typewrite(f"🌟 Something is happening: {event.upper()}! 🌟")
+    print("=" * 40 + "\n")
+    time.sleep(1)
+
+    if event == "rain":
+        player.attack_power = max(1, int(player.attack_power * 0.8))
+        wizard.attack_power = max(1, int(wizard.attack_power * 0.8))
+        print("🌧️  The rain dampens everyone's weapons, reducing attack power by 20%!")
+    elif event == "quake":
+        damage = random.randint(10, 30)
+        player.health -= damage
+        wizard.health -= damage
+        print(f"🌍  A quake shakes the battlefield! Both take {damage} damage!")
+    elif event == "blessing":
+        heal = random.randint(20, 60)
+        player.health = min(player.max_health, player.health + heal)
+        print(f"✨  A divine blessing heals the player for {heal} health!")
+    elif event == "curse":
+        player.state["poisoned"] = [True, 2]
+        print("💀  A dark curse poisons the player for 2 turns!")
+    elif event == "mana surge":
+        wizard.attack_power = int(wizard.attack_power * 1.5)
+        print("🔮  The wizard absorbs a mana surge, boosting attack power by 50%!")
+    elif event == "meteor shower":
+        player_damage = random.randint(10, 50)
+        wizard_damage = random.randint(10, 50)
+        player.health -= player_damage
+        wizard.health -= wizard_damage
+        print(f"☄️  Meteors rain down! Player takes {player_damage} damage, Wizard takes {wizard_damage} damage!")
+
+    time.sleep(1)
 
 # Base Character class
 class Character:
@@ -44,10 +90,9 @@ class Character:
         self.max_health = health
 
     def attack(self, opponent):
+        if self.handle_petrify():
+            return
 
-        if self.state["petrified"][0]:
-            time.sleep(0.5)
-            print(f"\n{self.name} is petrified and cannot attack!")
         elif opponent.state["immune"][0]:
             time.sleep(0.5)
             print(
@@ -56,10 +101,10 @@ class Character:
         else:
             if self.state["zealous"][0]:
                 boosted_attack = int(self.attack_power * 1.2)
-                curr_power = random.randrange(boosted_attack - 5, boosted_attack + 6)
+                curr_power = random.randint(boosted_attack - 5, boosted_attack + 5)
             else:
-                curr_power = random.randrange(
-                    self.attack_power - 5, self.attack_power + 6
+                curr_power = random.randint(
+                    self.attack_power - 5, self.attack_power + 5
                 )
 
             if opponent.state["armored"][0]:
@@ -74,14 +119,11 @@ class Character:
                 opponent.health -= curr_power
                 print(f"\n{self.name} attacks {opponent.name} for {curr_power} damage!")
 
-        if self.state["poisoned"][0]:
-            self.health -= 10
-            print(f"\n{self.name} loses 10 health from poison")
+        self.handle_poison()
 
     def heal(self):
-        if self.state["petrified"][0]:
-            time.sleep(0.5)
-            print(f"\n{self.name} is petrified and cannot heal!")
+        if self.handle_petrify():
+            return
         else:
             heal_amount = 20
             actual_healed = min(heal_amount, self.max_health - self.health)
@@ -91,18 +133,14 @@ class Character:
                 f"{self.name} healed for {actual_healed} health! Current health: {self.health}/{self.max_health}"
             )
 
-        if self.state["poisoned"][0]:
-            self.health -= 10
-            print(f"{self.name} loses 10 health from poison")
+        self.handle_poison()
 
     def display_stats(self):
         typewrite(
             f"{self.name}'s Stats - Health: {self.health}/{self.max_health}, Attack Power: {self.attack_power}"
         )
+        self.handle_poison()
 
-        if self.state["poisoned"][0]:
-            self.health -= 10
-            print(f"{self.name} loses 10 health from poison")
 
     def decrement_state_counters(self):
         for state, (active, counter) in self.state.items():
@@ -112,6 +150,18 @@ class Character:
                     self.state[state][0] = False
                     time.sleep(0.5)
                     print(f"{self.name} is no longer {state}!")
+                    
+    def handle_poison(self):
+        if self.state["poisoned"][0]:
+            self.health -= 10
+            print(f"{self.name} loses 10 health from poison") 
+            
+    def handle_petrify(self):
+        if self.state["petrified"][0]:
+            time.sleep(0.5)
+            print(f"\n{self.name} is petrified and cannot act!")
+            return True
+        return False                               
 
 
 # Warrior class (inherits from Character)
@@ -123,6 +173,8 @@ class Warrior(Character):
         self.ultimate_available = True
 
     def special(self, opponent):
+        if self.handle_petrify():
+            return
         print("\n" + "=" * 40)
         typewrite("✨ --- Special Abilities --- ✨")
         print("=" * 40 + "\n")
@@ -143,13 +195,13 @@ class Warrior(Character):
             if self.special_cooldown_1 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Battle Cry is on cooldown for {self.special_cooldown_1} more turns!"
+                    f"Battle Cry is on cooldown for {self.special_cooldown_1} more {'turn' if self.special_cooldown_1 == 1 else 'turns'}!"
                 )
                 return
             self.state["zealous"] = [True, 3]
             if not opponent.state["petrified"][0]:
                 opponent.state["petrified"] = [True, 3]
-            self.special_cooldown_1 = 5
+            self.special_cooldown_1 = 6
             time.sleep(0.5)
             print(
                 f"""{self.name} used Battle Cry! 
@@ -161,14 +213,14 @@ class Warrior(Character):
             if self.special_cooldown_2 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Shield Slam is on cooldown for {self.special_cooldown_2} more turns!"
+                    f"Shield Slam is on cooldown for {self.special_cooldown_2} more {'turn' if self.special_cooldown_2 == 1 else 'turns'}!"
                 )
                 return
             if not opponent.state["petrified"][0]:
                 opponent.state["petrified"] = [True, 2]
-            damage = random.randrange(1, 36)
+            damage = random.randint(1, 35)
             opponent.health -= damage
-            self.special_cooldown_2 = 3
+            self.special_cooldown_2 = 4
             time.sleep(0.5)
             print(
                 f"{self.name} used Shield Slam! {opponent.name} is stunned for {opponent.state['petrified'][1]} turns and took {damage} damage!"
@@ -185,11 +237,11 @@ class Warrior(Character):
                     f"{Fore.CYAN}\n...\"IT'S TIME FOR ARMAGEDDON!!\"{Style.RESET_ALL}"
                 )
                 time.sleep(0.5)
-                smash = int(opponent.health * random.randrange(3, 9) * 0.1)
+                smash = int(opponent.health * random.randint(3, 9) * 0.1)
                 opponent.health -= smash
                 print(f"{Fore.CYAN}\n{self.name} launches {opponent.name} in the air, jumps and SMASHES him for {smash} damage...{Style.RESET_ALL}")
                 time.sleep(1)
-                crash = int(opponent.health * random.randrange(4, 8) * 0.1)
+                crash = int(opponent.health * random.randint(4, 8) * 0.1)
                 opponent.health -= crash
                 print(f"{Fore.CYAN}\n{opponent.name} crashes into the ground for {crash} damage!!!{Style.RESET_ALL}")
                 opponent.state['immune'] = [False, 0]
@@ -198,10 +250,7 @@ class Warrior(Character):
         else:
             print("Invalid choice. Turn skipped.")
 
-        if self.state["poisoned"][0]:
-            self.health -= 10
-            time.sleep(0.5)
-            print(f"{self.name} loses 10 health from poison")
+        self.handle_poison()
 
     def decrement_state_counters(self):
         if self.special_cooldown_1 > 0:
@@ -220,6 +269,8 @@ class Mage(Character):
         self.ultimate_available = True
 
     def special(self, opponent):
+        if self.handle_petrify():
+            return
         print("\n" + "=" * 40)
         typewrite("✨ --- Special Abilities --- ✨")
         print("=" * 40 + "\n")
@@ -240,7 +291,7 @@ class Mage(Character):
             if self.special_cooldown_1 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Fireball is on cooldown for {self.special_cooldown_1} more turns!"
+                    f"Fireball is on cooldown for {self.special_cooldown_1} more {'turn' if self.special_cooldown_1 == 1 else 'turns'}!"
                 )
                 return
             damage = 40
@@ -255,7 +306,7 @@ class Mage(Character):
             if self.special_cooldown_2 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Arcane Shield is on cooldown for {self.special_cooldown_2} more turns!"
+                    f"Arcane Shield is on cooldown for {self.special_cooldown_2} more {'turn' if self.special_cooldown_2 == 1 else 'turns'}!"
                 )
                 return
             self.state["armored"] = [True, 2]
@@ -277,7 +328,7 @@ class Mage(Character):
                 print(
                     f"{Fore.CYAN}\nTo bring forth the Apocalypse... {Style.RESET_ALL}"
                 )
-                damage = int(opponent.health * random.randrange(5, 11) * 0.1)
+                damage = int(opponent.health * random.randint(5, 10) * 0.1)
                 opponent.health -= damage
                 time.sleep(1)
                 print(
@@ -286,6 +337,8 @@ class Mage(Character):
                 self.ultimate_available = False
         else:
             print("Invalid choice. Turn skipped.")
+            
+        self.handle_poison()    
 
     def decrement_state_counters(self):
         if self.special_cooldown_1 > 0:
@@ -304,6 +357,8 @@ class Archer(Character):
         self.ultimate_available = True
 
     def special(self, opponent):
+        if self.handle_petrify():
+            return
         print("\n" + "=" * 40)
         typewrite("✨ --- Special Abilities --- ✨")
         print("=" * 40 + "\n")
@@ -324,7 +379,7 @@ class Archer(Character):
             if self.special_cooldown_1 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Piercing Arrow is on cooldown for {self.special_cooldown_1} more turns!"
+                    f"Piercing Arrow is on cooldown for {self.special_cooldown_1} more {'turn' if self.special_cooldown_1 == 1 else 'turns'}!"
                 )
                 return
             damage = 40
@@ -341,7 +396,7 @@ class Archer(Character):
             if self.special_cooldown_2 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Volley is on cooldown for {self.special_cooldown_2} more turns!"
+                    f"Volley is on cooldown for {self.special_cooldown_2} more {'turn' if self.special_cooldown_2 == 1 else 'turns'}!"
                 )
                 return
             time.sleep(0.5)
@@ -349,15 +404,15 @@ class Archer(Character):
             print(f"{self.name} used Volley!\n")
             time.sleep(1)
 
-            damage1 = random.randrange(0, 31)
+            damage1 = random.randint(0, 30)
             opponent.health -= damage1
             print(f"{opponent.name} took {damage1} damage!")
             time.sleep(0.5)
-            damage2 = random.randrange(0, 31)
+            damage2 = random.randint(0, 30)
             opponent.health -= damage2
             print(f"{opponent.name} took {damage2} damage!")
             time.sleep(0.5)
-            damage3 = random.randrange(0, 31)
+            damage3 = random.randint(0, 30)
             opponent.health -= damage3
             print(f"{opponent.name} took {damage3} damage!")
             time.sleep(0.5)
@@ -372,9 +427,9 @@ class Archer(Character):
                 print(f"{Fore.CYAN}\nThe sky suddenly darkens...{Style.RESET_ALL}")
                 time.sleep(1)
                 print(f"{Fore.CYAN}\nAsteroids start raining down... {Style.RESET_ALL}")
-                trigger = random.randrange(3, 16)
+                trigger = random.randint(3, 10)
                 for i in range(trigger):
-                    damage = random.randrange(10, 101)
+                    damage = random.randint(10, 60)
                     opponent.health -= damage
                     print(
                         f"{Fore.CYAN}\n{opponent.name} hit for {damage} damage!!{Style.RESET_ALL}"
@@ -384,6 +439,8 @@ class Archer(Character):
 
         else:
             print("Invalid choice. Turn skipped.")
+            
+        self.handle_poison()    
 
     def decrement_state_counters(self):
         if self.special_cooldown_1 > 0:
@@ -402,6 +459,8 @@ class Paladin(Character):
         self.ultimate_available = True
 
     def special(self, opponent):
+        if self.handle_petrify():
+            return
         print("\n" + "=" * 40)
         typewrite("✨ --- Special Abilities --- ✨")
         print("=" * 40 + "\n")
@@ -422,7 +481,7 @@ class Paladin(Character):
             if self.special_cooldown_1 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Holy Strike is on cooldown for {self.special_cooldown_1} more turns!"
+                    f"Holy Strike is on cooldown for {self.special_cooldown_1} more {'turn' if self.special_cooldown_1 == 1 else 'turns'}!"
                 )
                 return
             damage = 30
@@ -437,7 +496,7 @@ class Paladin(Character):
             if self.special_cooldown_2 > 0:
                 time.sleep(0.5)
                 print(
-                    f"Divine Shield is on cooldown for {self.special_cooldown_2} more turns!"
+                    f"Divine Shield is on cooldown for {self.special_cooldown_2} more {'turn' if self.special_cooldown_2 == 1 else 'turns'}!"
                 )
                 return
             self.state["immune"] = [True, 2]
@@ -470,6 +529,8 @@ class Paladin(Character):
 
         else:
             print("Invalid choice. Turn skipped.")
+            
+        self.handle_poison()    
 
     def decrement_state_counters(self):
         if self.special_cooldown_1 > 0:
@@ -490,7 +551,7 @@ class EvilWizard(Character):
         print(f"{self.name} regenerates 5 health! Current health: {self.health}")
 
     def barrier(self):
-        trigger = random.randrange(1, 5)
+        trigger = random.randint(1, 4)
         if trigger == 3 and not self.state["petrified"][0]:
             self.state["armored"] = [True, 3]
             self.state["immune"] = [True, 2]
@@ -507,14 +568,14 @@ class EvilWizard(Character):
             return False
 
     def curse(self, opponent):
-        trigger = random.randrange(1, 6)
+        trigger = random.randint(1, 5)
         if trigger == 3 and not self.state["petrified"][0]:
             opponent.state["confused"] = [True, 2]
             opponent.state["poisoned"] = [True, 2]
             time.sleep(1)
             print(
-                f"""\n\n{self.name} has cursed {opponent.name}!
-                \n{opponent.name} is now confused and poisoned for {opponent.state['confused'][1]} turns!"""
+                f"""{Fore.RED}\n\n{self.name} has cursed {opponent.name}!
+                \n{opponent.name} is now confused and poisoned for {opponent.state['confused'][1]} turns!{Style.RESET_ALL}"""
             )
             return True
         else:
@@ -522,7 +583,7 @@ class EvilWizard(Character):
         
     def antimatter(self, opponent):
         if self.health <= self.max_health * 0.2:
-           trigger = random.randrange(1, 3)
+           trigger = random.randint(1, 2)
            if trigger == 2:
                time.sleep(1.5)
                typewrite(f"{Fore.MAGENTA}\n...so...you think you're winning?{Style.RESET_ALL}")
@@ -530,7 +591,7 @@ class EvilWizard(Character):
                opponent.state['poisoned'] = [True, 3]
                opponent.state['confused'] = [True, 3]
                opponent.state['petrified'] = [True, 3]
-               opponent.health = int(opponent.health * 0.5)
+               opponent.health = max(1, int(opponent.health * 0.5))
                print(f"{Fore.MAGENTA}\n{self.name} slashed {opponent.name}'s health in half!!{Style.RESET_ALL}")
         
 
@@ -541,34 +602,35 @@ class Gilgamesh(Character):
 
     @staticmethod
     def swords(opponent):
-        trigger = random.randrange(1, 13)
-        if trigger == 7:
-            sword = random.randrange(1, 4)
-            print("\n" + "=" * 40)
-            time.sleep(1)
-            typewrite(f"{Fore.GREEN}\n\n*** I AM GILGAMESH ***{Style.RESET_ALL}")
-            time.sleep(1)
-            print("\n" + "=" * 40)
-            time.sleep(0.5)
-            typewrite(f"{Fore.GREEN}\n I will attack with...{Style.RESET_ALL}")
-            time.sleep(1.5)
-            if sword == 1:
-                typewrite(f"{Fore.GREEN}\n...the first one!{Style.RESET_ALL}")
+        if opponent.health > 0:
+            trigger = random.randint(1, 15)
+            if trigger == 7:
+                sword = random.randint(1, 3)
+                print("\n" + "=" * 40)
                 time.sleep(1)
-                damage = random.randrange(50, 201)
-                opponent.health -= damage
-                print(f"\nGilgamesh dealt {damage} damage to {opponent.name}!\n")
-            elif sword == 2:
-                typewrite(f"{Fore.GREEN}\n...the second one!{Style.RESET_ALL}")
+                typewrite(f"{Fore.GREEN}\n\n*** I AM GILGAMESH ***{Style.RESET_ALL}")
                 time.sleep(1)
-                damage = random.randrange(5, 40)
-                opponent.health -= damage
-                print(f"\nGilgamesh dealt {damage} damage to {opponent.name}!\n")
-            elif sword == 3:
-                typewrite(f"{Fore.GREEN}\n...the third one!{Style.RESET_ALL}")
-                time.sleep(1)
-                opponent.health -= 1
-                print(f"\nGilgamesh dealt 1 damage to {opponent.name}!\n")
+                print("\n" + "=" * 40)
+                time.sleep(0.5)
+                typewrite(f"{Fore.GREEN}\n I will attack with...{Style.RESET_ALL}")
+                time.sleep(1.5)
+                if sword == 1:
+                    typewrite(f"{Fore.GREEN}\n...the first one!{Style.RESET_ALL}")
+                    time.sleep(1)
+                    damage = random.randint(50, 201)
+                    opponent.health -= damage
+                    print(f"\nGilgamesh dealt {damage} damage to {opponent.name}!\n")
+                elif sword == 2:
+                    typewrite(f"{Fore.GREEN}\n...the second one!{Style.RESET_ALL}")
+                    time.sleep(1)
+                    damage = random.randint(5, 40)
+                    opponent.health -= damage
+                    print(f"\nGilgamesh dealt {damage} damage to {opponent.name}!\n")
+                elif sword == 3:
+                    typewrite(f"{Fore.GREEN}\n...the third one!{Style.RESET_ALL}")
+                    time.sleep(1)
+                    opponent.health -= 1
+                    print(f"\nGilgamesh dealt 1 damage to {opponent.name}!\n")
 
 
 def create_character():
@@ -631,6 +693,9 @@ def create_character():
 
 def battle(player, wizard):
     while wizard.health > 0 and player.health > 0:
+        
+        if random.randint(1, 4) == 3:
+            random_event(player, wizard)
 
         print("\n" + "=" * 40)
         display_health_bar(player.name, player.health, player.max_health, player.state)
